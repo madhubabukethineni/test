@@ -90,7 +90,7 @@ jobs:
             BLOCKED="true"
           elif [[ "$IS_FROZEN" != "false" && -n "$START_DATE" && -n "$END_DATE" && "$NOW" > "$START_DATE" && "$NOW" < "$END_DATE" ]]; then
             echo "🚫 Code Freeze is active (date-based)" >> $GITHUB_STEP_SUMMARY
-            echo "🕒 Code Freeze end on: $END_DATE" >> $GITHUB_STEP_SUMMARY
+            echo "🕒 code Freeze end on: $END_DATE" >> $GITHUB_STEP_SUMMARY
             BLOCKED="true"
           else
             echo "✅ No active freeze — PR allowed" >> $GITHUB_STEP_SUMMARY
