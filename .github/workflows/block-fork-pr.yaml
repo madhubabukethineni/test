@@ -25,7 +25,7 @@ jobs:
         run: |
           gh pr comment "$PR_URL" --body "🚫 PRs from forked repositories are not allowed in this repo."
         env:
-          PR_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
 
       - name: Close PR (optional)
@@ -33,7 +33,7 @@ jobs:
         run: |
           gh pr close "$PR_URL" --reason "not planned"
         env:
-          PR_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
 
       - name: Fail the workflow
