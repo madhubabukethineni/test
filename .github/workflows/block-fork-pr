@@ -1,7 +1,8 @@
 name: Block All Forked PRs
 
 on:
-  pull_request:  # Runs on PRs to any branch
+  pull_request:
+    types: [opened, synchronize] # Runs on PRs to any branch
 
 jobs:
   block-forks:
