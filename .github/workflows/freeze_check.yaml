@@ -3,16 +3,16 @@ name: Code Freeze Check
 on:
   pull_request:
     branches:
-      - main
+      - test
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   code-freeze-check:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
     permissions:
       contents: read
       pull-requests: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -38,62 +38,46 @@ jobs:
           set -euxo pipefail
           echo "🔍 Evaluating freeze conditions..."
 
-          if ! command -v jq &> /dev/null; then
-            echo "jq not found, installing..."
-            sudo apt-get update && sudo apt-get install -y jq
-          fi
-
-          git fetch origin ${{ github.base_ref }}
-          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
-          echo "Changed files: $CHANGED_FILES"
-
-          FILE_COUNT=$(echo "$CHANGED_FILES" | wc -l)
-          ONLY_FREEZE_CHANGED=false
-          if [[ "$FILE_COUNT" -eq 1 && "$CHANGED_FILES" == "freeze.json" ]]; then
-            ONLY_FREEZE_CHANGED=true
-          fi
-          echo "Only freeze.json changed: $ONLY_FREEZE_CHANGED"
-
           PR_LABELS="${{ steps.labels.outputs.labels }}"
           echo "PR labels: $PR_LABELS"
-          
-          if [[ "$ONLY_FREEZE_CHANGED" == "true" ]]; then
-            echo "✅ Only freeze.json changed — allowed" >> $GITHUB_STEP_SUMMARY
-            echo "blocked=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
 
+          # If bypass label present, allow PR
           if echo "$PR_LABELS" | grep -q "bypass-code-freeze"; then
             echo "🛂 bypass-code-freeze label found — allowed" >> $GITHUB_STEP_SUMMARY
             echo "blocked=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          IS_FROZEN="false"
-          START_DATE=""
-          END_DATE=""
-          if [ -f "freeze.json" ]; then
-            IS_FROZEN=$(jq -r '.freeze // "false"' freeze.json)
-            START_DATE=$(jq -r '.start_date // ""' freeze.json)
-            END_DATE=$(jq -r '.end_date // ""' freeze.json)
-          else
-            echo "freeze.json file not found"
-          fi
-
+          # Pull values from secrets
+          IS_FROZEN="${{ secrets.FREEZE_FLAG }}"
+          START_DATE="${{ secrets.FREEZE_START_DATE }}"
+          END_DATE="${{ secrets.FREEZE_END_DATE }}"
           NOW=$(date -u +"%Y-%m-%d")
           echo "Now: $NOW | Freeze: $IS_FROZEN | Start: $START_DATE | End: $END_DATE"
-
           BLOCKED="false"
+
+          # If explicit freeze flag is true → always block
           if [[ "$IS_FROZEN" == "true" ]]; then
             echo "🚫 Code Freeze is active (explicit)" >> $GITHUB_STEP_SUMMARY
-            echo "🕒 Code Freeze end on: $END_DATE" >> $GITHUB_STEP_SUMMARY
+            echo "🕒 Code Freeze ends on: $END_DATE" >> $GITHUB_STEP_SUMMARY
             BLOCKED="true"
-          elif [[ "$IS_FROZEN" != "false" && -n "$START_DATE" && -n "$END_DATE" && "$NOW" > "$START_DATE" && "$NOW" < "$END_DATE" ]]; then
-            echo "🚫 Code Freeze is active (date-based)" >> $GITHUB_STEP_SUMMARY
-            echo "🕒 code Freeze end on: $END_DATE" >> $GITHUB_STEP_SUMMARY
-            BLOCKED="true"
+          
+          # Else if dates are set and today is within range → block
+          elif [[ -n "$START_DATE" && -n "$END_DATE" ]]; then
+            START_EPOCH=$(date -d "$START_DATE" +%s)
+            END_EPOCH=$(date -d "$END_DATE" +%s)
+            NOW_EPOCH=$(date -d "$NOW" +%s)
+
+            if [[ "$NOW_EPOCH" -ge "$START_EPOCH" && "$NOW_EPOCH" -le "$END_EPOCH" ]]; then
+              echo "🚫 Code Freeze is active (date-based)" >> $GITHUB_STEP_SUMMARY
+              echo "🕒 Code Freeze ends on: $END_DATE" >> $GITHUB_STEP_SUMMARY
+              BLOCKED="true"
+            else
+              echo "✅ No active freeze — PR allowed" >> $GITHUB_STEP_SUMMARY
+            fi
+          
           else
-            echo "✅ No active freeze — PR allowed" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No freeze window configured — PR allowed" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "blocked=$BLOCKED" >> $GITHUB_OUTPUT
