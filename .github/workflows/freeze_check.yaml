@@ -57,18 +57,11 @@ jobs:
           NOW=$(date -u +"%Y-%m-%d")
           BLOCKED="false"
 
-          # Convert to epoch for date comparison if both dates exist
-          if [[ -n "$START_DATE" && -n "$END_DATE" ]]; then
-            NOW_EPOCH=$(date -d "$NOW" +%s)
-            START_EPOCH=$(date -d "$START_DATE" +%s)
-            END_EPOCH=$(date -d "$END_DATE" +%s)
-          fi
-
           if [[ "$FREEZE_FLAG" == "true" ]]; then
             echo "🚫 Code Freeze is active (explicit)" >> $GITHUB_STEP_SUMMARY
             echo "🕒 Freeze window: $START_DATE → $END_DATE" >> $GITHUB_STEP_SUMMARY
             BLOCKED="true"
-          elif [[ "$FREEZE_FLAG" != "false" && -n "$START_DATE" && -n "$END_DATE" && $NOW_EPOCH -ge $START_EPOCH && $NOW_EPOCH -le $END_EPOCH ]]; then
+          elif [[ "$FREEZE_FLAG" != "false" && -n "$START_DATE" && -n "$END_DATE" && "$NOW" > "$START_DATE" && "$NOW" < "$END_DATE" ]]; then
             echo "🚫 Code Freeze is active (date-based)" >> $GITHUB_STEP_SUMMARY
             echo "🕒 Freeze window: $START_DATE → $END_DATE" >> $GITHUB_STEP_SUMMARY
             BLOCKED="true"
