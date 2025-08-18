@@ -3,16 +3,16 @@ name: Code Freeze Check
 on:
   pull_request:
     branches:
-      - main
+      - test
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   code-freeze-check:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
     permissions:
       contents: read
       pull-requests: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -38,42 +38,46 @@ jobs:
           set -euxo pipefail
           echo "🔍 Evaluating freeze conditions..."
 
-          # Pull values from secrets
-          FREEZE_FLAG="${{ secrets.FREEZE_FLAG }}"
-          START_DATE="${{ secrets.FREEZE_START_DATE }}"
-          END_DATE="${{ secrets.FREEZE_END_DATE }}"
           PR_LABELS="${{ steps.labels.outputs.labels }}"
-
           echo "PR labels: $PR_LABELS"
-          echo "Freeze flag: $FREEZE_FLAG | Start: $START_DATE | End: $END_DATE"
 
-          # Bypass if PR has special label
+          # If bypass label present, allow PR
           if echo "$PR_LABELS" | grep -q "bypass-code-freeze"; then
             echo "🛂 bypass-code-freeze label found — allowed" >> $GITHUB_STEP_SUMMARY
             echo "blocked=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
+          # Pull values from secrets
+          IS_FROZEN="${{ secrets.FREEZE_FLAG }}"
+          START_DATE="${{ secrets.FREEZE_START_DATE }}"
+          END_DATE="${{ secrets.FREEZE_END_DATE }}"
           NOW=$(date -u +"%Y-%m-%d")
+          echo "Now: $NOW | Freeze: $IS_FROZEN | Start: $START_DATE | End: $END_DATE"
           BLOCKED="false"
 
-          # Convert to epoch for date comparison if both dates exist
-          if [[ -n "$START_DATE" && -n "$END_DATE" ]]; then
-            NOW_EPOCH=$(date -d "$NOW" +%s)
+          # If explicit freeze flag is true → always block
+          if [[ "$IS_FROZEN" == "true" ]]; then
+            echo "🚫 Code Freeze is active (explicit)" >> $GITHUB_STEP_SUMMARY
+            echo "🕒 Code Freeze ends on: $END_DATE" >> $GITHUB_STEP_SUMMARY
+            BLOCKED="true"
+          
+          # Else if dates are set and today is within range → block
+          elif [[ -n "$START_DATE" && -n "$END_DATE" ]]; then
             START_EPOCH=$(date -d "$START_DATE" +%s)
             END_EPOCH=$(date -d "$END_DATE" +%s)
-          fi
+            NOW_EPOCH=$(date -d "$NOW" +%s)
 
-          if [[ "$FREEZE_FLAG" == "true" ]]; then
-            echo "🚫 Code Freeze is active (explicit)" >> $GITHUB_STEP_SUMMARY
-            echo "🕒 Freeze window: $START_DATE → $END_DATE" >> $GITHUB_STEP_SUMMARY
-            BLOCKED="true"
-          elif [[ "$FREEZE_FLAG" != "false" && -n "$START_DATE" && -n "$END_DATE" && $NOW_EPOCH -ge $START_EPOCH && $NOW_EPOCH -le $END_EPOCH ]]; then
-            echo "🚫 Code Freeze is active (date-based)" >> $GITHUB_STEP_SUMMARY
-            echo "🕒 Freeze window: $START_DATE → $END_DATE" >> $GITHUB_STEP_SUMMARY
-            BLOCKED="true"
+            if [[ "$NOW_EPOCH" -ge "$START_EPOCH" && "$NOW_EPOCH" -le "$END_EPOCH" ]]; then
+              echo "🚫 Code Freeze is active (date-based)" >> $GITHUB_STEP_SUMMARY
+              echo "🕒 Code Freeze ends on: $END_DATE" >> $GITHUB_STEP_SUMMARY
+              BLOCKED="true"
+            else
+              echo "✅ No active freeze — PR allowed" >> $GITHUB_STEP_SUMMARY
+            fi
+          
           else
-            echo "✅ No active freeze — PR allowed" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No freeze window configured — PR allowed" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "blocked=$BLOCKED" >> $GITHUB_OUTPUT
