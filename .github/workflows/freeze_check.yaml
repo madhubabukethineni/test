@@ -3,7 +3,7 @@ name: Code Freeze Check
 on:
   pull_request:
     branches:
-      - test
+      - main
     types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
