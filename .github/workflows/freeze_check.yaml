@@ -38,7 +38,7 @@ jobs:
           set -euxo pipefail
           echo "🔍 Evaluating freeze conditions..."
 
-          # Pull values from secrets
+          # Pull values from repo variables
           FREEZE_FLAG="${{ vars.FREEZE_FLAG }}"
           START_DATE="${{ vars.FREEZE_START_DATE }}"
           END_DATE="${{ vars.FREEZE_END_DATE }}"
@@ -61,7 +61,7 @@ jobs:
             echo "🚫 Code Freeze is active (explicit)" >> $GITHUB_STEP_SUMMARY
             echo "🕒 Freeze window: $START_DATE → $END_DATE" >> $GITHUB_STEP_SUMMARY
             BLOCKED="true"
-          elif [[ "$FREEZE_FLAG" != "false" && -n "$START_DATE" && -n "$END_DATE" && "$NOW" > "$START_DATE" && "$NOW" < "$END_DATE" ]]; then
+          elif [[ -n "$START_DATE" && -n "$END_DATE" && ( "$NOW" > "$START_DATE" || "$NOW" == "$START_DATE" ) && ( "$NOW" < "$END_DATE" || "$NOW" == "$END_DATE" ) ]]; then
             echo "🚫 Code Freeze is active (date-based)" >> $GITHUB_STEP_SUMMARY
             echo "🕒 Freeze window: $START_DATE → $END_DATE" >> $GITHUB_STEP_SUMMARY
             BLOCKED="true"
