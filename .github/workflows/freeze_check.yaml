@@ -39,9 +39,9 @@ jobs:
           echo "🔍 Evaluating freeze conditions..."
 
           # Pull values from secrets
-          FREEZE_FLAG="${{ secrets.FREEZE_FLAG }}"
-          START_DATE="${{ secrets.FREEZE_START_DATE }}"
-          END_DATE="${{ secrets.FREEZE_END_DATE }}"
+          FREEZE_FLAG="${{ vars.FREEZE_FLAG }}"
+          START_DATE="${{ vars.FREEZE_START_DATE }}"
+          END_DATE="${{ vars.FREEZE_END_DATE }}"
           PR_LABELS="${{ steps.labels.outputs.labels }}"
 
           echo "PR labels: $PR_LABELS"
